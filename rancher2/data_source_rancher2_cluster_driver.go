@@ -76,7 +76,11 @@ func dataSourceRancher2ClusterDriverRead(d *schema.ResourceData, meta interface{
 	}
 	listOpts := NewListOpts(filters)
 
-	clusterDrivers, err := client.KontainerDriver.List(listOpts)
+	var clusterDrivers *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterDrivers, err = client.KontainerDriver.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

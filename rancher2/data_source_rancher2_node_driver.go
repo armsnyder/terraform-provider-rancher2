@@ -80,7 +80,11 @@ func dataSourceRancher2NodeDriverRead(d *schema.ResourceData, meta interface{}) 
 	}
 	listOpts := NewListOpts(filters)
 
-	nodeDrivers, err := client.NodeDriver.List(listOpts)
+	var nodeDrivers *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		nodeDrivers, err = client.NodeDriver.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

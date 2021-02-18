@@ -56,7 +56,11 @@ func resourceRancher2AppCreate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	newApp, err := client.App.Create(app)
+	var newApp *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newApp, err = client.App.Create(app)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -115,7 +119,11 @@ func resourceRancher2AppRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	app, err := client.App.ByID(id)
+	var app *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		app, err = client.App.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] App ID %s not found.", id)
@@ -137,7 +145,11 @@ func resourceRancher2AppUpdate(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	app, err := client.App.ByID(id)
+	var app *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		app, err = client.App.ByID(id)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -148,7 +160,11 @@ func resourceRancher2AppUpdate(d *schema.ResourceData, meta interface{}) error {
 		app.Description = d.Get("description").(string)
 		app.Annotations = toMapString(d.Get("annotations").(map[string]interface{}))
 		app.Labels = toMapString(d.Get("labels").(map[string]interface{}))
-		_, err := client.App.Replace(app)
+		var _ *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			_, err = client.App.Replace(app)
+			return err
+		})
 		if err != nil {
 			return err
 		}
@@ -230,7 +246,11 @@ func resourceRancher2AppDelete(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	app, err := client.App.ByID(id)
+	var app *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		app, err = client.App.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] App ID %s not found.", d.Id())
@@ -284,7 +304,11 @@ func resourceRancher2AppGetVersion(d *schema.ResourceData, meta interface{}) err
 		return err
 	}
 
-	template, err := client.Template.ByID(appID)
+	var template *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		template, err = client.Template.ByID(appID)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -302,7 +326,11 @@ func resourceRancher2AppGetVersion(d *schema.ResourceData, meta interface{}) err
 // appStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher App.
 func appStateRefreshFunc(client *projectClient.Client, appID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.App.ByID(appID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.App.ByID(appID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil
@@ -316,7 +344,11 @@ func appStateRefreshFunc(client *projectClient.Client, appID string) resource.St
 // appTransitionRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher App.
 func appTransitionRefreshFunc(client *projectClient.Client, appID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.App.ByID(appID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.App.ByID(appID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "no", nil

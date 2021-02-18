@@ -42,7 +42,11 @@ func resourceRancher2ClusterAlertGroupCreate(d *schema.ResourceData, meta interf
 		return err
 	}
 
-	newClusterAlertGroup, err := client.ClusterAlertGroup.Create(clusterAlertGroup)
+	var newClusterAlertGroup *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newClusterAlertGroup, err = client.ClusterAlertGroup.Create(clusterAlertGroup)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -72,7 +76,11 @@ func resourceRancher2ClusterAlertGroupRead(d *schema.ResourceData, meta interfac
 		return err
 	}
 
-	clusterAlertGroup, err := client.ClusterAlertGroup.ByID(d.Id())
+	var clusterAlertGroup *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterAlertGroup, err = client.ClusterAlertGroup.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Cluster Alert Group ID %s not found.", d.Id())
@@ -91,7 +99,11 @@ func resourceRancher2ClusterAlertGroupUpdate(d *schema.ResourceData, meta interf
 		return err
 	}
 
-	clusterAlertGroup, err := client.ClusterAlertGroup.ByID(d.Id())
+	var clusterAlertGroup *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterAlertGroup, err = client.ClusterAlertGroup.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -115,7 +127,11 @@ func resourceRancher2ClusterAlertGroupUpdate(d *schema.ResourceData, meta interf
 		"labels":                toMapString(d.Get("labels").(map[string]interface{})),
 	}
 
-	newClusterAlertGroup, err := client.ClusterAlertGroup.Update(clusterAlertGroup, update)
+	var newClusterAlertGroup *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newClusterAlertGroup, err = client.ClusterAlertGroup.Update(clusterAlertGroup, update)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -145,7 +161,11 @@ func resourceRancher2ClusterAlertGroupDelete(d *schema.ResourceData, meta interf
 		return err
 	}
 
-	clusterAlertGroup, err := client.ClusterAlertGroup.ByID(id)
+	var clusterAlertGroup *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterAlertGroup, err = client.ClusterAlertGroup.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Cluster Alert Group ID %s not found.", id)
@@ -214,7 +234,11 @@ func resourceRancher2ClusterAlertGroupRecients(d *schema.ResourceData, meta inte
 // clusterAlertGroupStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher ClusterAlertGroup.
 func clusterAlertGroupStateRefreshFunc(client *managementClient.Client, clusterAlertGroupID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.ClusterAlertGroup.ByID(clusterAlertGroupID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.ClusterAlertGroup.ByID(clusterAlertGroupID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil

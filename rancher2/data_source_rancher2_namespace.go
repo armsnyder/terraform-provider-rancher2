@@ -75,7 +75,11 @@ func dataSourceRancher2NamespaceRead(d *schema.ResourceData, meta interface{}) e
 	}
 	listOpts := NewListOpts(filters)
 
-	namespaces, err := client.Namespace.List(listOpts)
+	var namespaces *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		namespaces, err = client.Namespace.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	projectClient "github.com/rancher/rancher/pkg/client/generated/project/v3"
 )
 
 func dataSourceRancher2App() *schema.Resource {
@@ -102,7 +103,11 @@ func dataSourceRancher2AppRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	apps, err := client.App.List(listOpts)
+	var apps *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		apps, err = client.App.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

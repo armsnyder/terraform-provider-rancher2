@@ -25,7 +25,11 @@ func resourceRancher2AuthConfigPingCreate(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	auth, err := client.AuthConfig.ByID(AuthConfigPingName)
+	var auth *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		auth, err = client.AuthConfig.ByID(AuthConfigPingName)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to get Auth Config %s: %s", AuthConfigPingName, err)
 	}
@@ -62,7 +66,11 @@ func resourceRancher2AuthConfigPingRead(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	auth, err := client.AuthConfig.ByID(AuthConfigPingName)
+	var auth *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		auth, err = client.AuthConfig.ByID(AuthConfigPingName)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			log.Printf("[INFO] Auth Config %s not found.", AuthConfigPingName)
@@ -99,7 +107,11 @@ func resourceRancher2AuthConfigPingDelete(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	auth, err := client.AuthConfig.ByID(AuthConfigPingName)
+	var auth *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		auth, err = client.AuthConfig.ByID(AuthConfigPingName)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			log.Printf("[INFO] Auth Config %s not found.", AuthConfigPingName)

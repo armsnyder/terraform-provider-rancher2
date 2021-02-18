@@ -116,7 +116,11 @@ func dataSourceRancher2NotifierRead(d *schema.ResourceData, meta interface{}) er
 	}
 	listOpts := NewListOpts(filters)
 
-	notifiers, err := client.Notifier.List(listOpts)
+	var notifiers *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		notifiers, err = client.Notifier.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

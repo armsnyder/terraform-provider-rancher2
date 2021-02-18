@@ -49,7 +49,11 @@ func resourceRancher2ProjectRoleTemplateBindingCreate(d *schema.ResourceData, me
 
 	log.Printf("[INFO] Creating Project Role Template Binding %s", projectRole.Name)
 
-	newProjectRole, err := client.ProjectRoleTemplateBinding.Create(projectRole)
+	var newProjectRole *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newProjectRole, err = client.ProjectRoleTemplateBinding.Create(projectRole)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -80,7 +84,11 @@ func resourceRancher2ProjectRoleTemplateBindingRead(d *schema.ResourceData, meta
 		return err
 	}
 
-	projectRole, err := client.ProjectRoleTemplateBinding.ByID(d.Id())
+	var projectRole *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectRole, err = client.ProjectRoleTemplateBinding.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Project Role Template Binding ID %s not found.", d.Id())
@@ -100,7 +108,11 @@ func resourceRancher2ProjectRoleTemplateBindingUpdate(d *schema.ResourceData, me
 		return err
 	}
 
-	projectRole, err := client.ProjectRoleTemplateBinding.ByID(d.Id())
+	var projectRole *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectRole, err = client.ProjectRoleTemplateBinding.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -115,7 +127,11 @@ func resourceRancher2ProjectRoleTemplateBindingUpdate(d *schema.ResourceData, me
 		"labels":           toMapString(d.Get("labels").(map[string]interface{})),
 	}
 
-	newProjectRole, err := client.ProjectRoleTemplateBinding.Update(projectRole, update)
+	var newProjectRole *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newProjectRole, err = client.ProjectRoleTemplateBinding.Update(projectRole, update)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -145,7 +161,11 @@ func resourceRancher2ProjectRoleTemplateBindingDelete(d *schema.ResourceData, me
 		return err
 	}
 
-	projectRole, err := client.ProjectRoleTemplateBinding.ByID(id)
+	var projectRole *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectRole, err = client.ProjectRoleTemplateBinding.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Project Role Template Binding ID %s not found.", d.Id())
@@ -184,7 +204,11 @@ func resourceRancher2ProjectRoleTemplateBindingDelete(d *schema.ResourceData, me
 // PpojectRoleTemplateBindingStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher Project Role Template Binding.
 func projectRoleTemplateBindingStateRefreshFunc(client *managementClient.Client, projectRoleID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.ProjectRoleTemplateBinding.ByID(projectRoleID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.ProjectRoleTemplateBinding.ByID(projectRoleID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil

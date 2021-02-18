@@ -38,7 +38,11 @@ func resourceRancher2ProjectAlertRuleCreate(d *schema.ResourceData, meta interfa
 		return err
 	}
 
-	newProjectAlertRule, err := client.ProjectAlertRule.Create(projectAlertRule)
+	var newProjectAlertRule *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newProjectAlertRule, err = client.ProjectAlertRule.Create(projectAlertRule)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -68,7 +72,11 @@ func resourceRancher2ProjectAlertRuleRead(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	projectAlertRule, err := client.ProjectAlertRule.ByID(d.Id())
+	var projectAlertRule *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectAlertRule, err = client.ProjectAlertRule.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Project Alert Rule ID %s not found.", d.Id())
@@ -87,7 +95,11 @@ func resourceRancher2ProjectAlertRuleUpdate(d *schema.ResourceData, meta interfa
 		return err
 	}
 
-	projectAlertRule, err := client.ProjectAlertRule.ByID(d.Id())
+	var projectAlertRule *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectAlertRule, err = client.ProjectAlertRule.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -118,7 +130,11 @@ func resourceRancher2ProjectAlertRuleUpdate(d *schema.ResourceData, meta interfa
 		update["workloadRule"] = expandWorkloadRule(v)
 	}
 
-	newProjectAlertRule, err := client.ProjectAlertRule.Update(projectAlertRule, update)
+	var newProjectAlertRule *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newProjectAlertRule, err = client.ProjectAlertRule.Update(projectAlertRule, update)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -148,7 +164,11 @@ func resourceRancher2ProjectAlertRuleDelete(d *schema.ResourceData, meta interfa
 		return err
 	}
 
-	projectAlertRule, err := client.ProjectAlertRule.ByID(id)
+	var projectAlertRule *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectAlertRule, err = client.ProjectAlertRule.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Project Alert Rule ID %s not found.", id)

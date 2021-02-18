@@ -78,3 +78,4 @@ The following arguments are supported:
 * `insecure` - (Optional) Allow insecure connection to Rancher. Mandatory if self signed tls and not ca_certs provided. It can also be sourced from the `RANCHER_INSECURE` environment variable.
 * `bootstrap` - (Optional) Enable bootstrap mode to manage `rancher2_bootstrap` resource. It can also be sourced from the `RANCHER_BOOTSTRAP` environment variable. Default: `false`
 * `retries` - (Optional) Number of retries to check Rancher connectivity and `rancher2_node_template` resource deletion. Default: `10`
+* `retry_timeout` - (Optional) Timeout for retrying internal server errors encountered during resource operations. Retries can be disabled by setting this argument to `0`. Default: `30s`

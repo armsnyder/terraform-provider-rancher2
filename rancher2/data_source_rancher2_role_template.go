@@ -106,7 +106,11 @@ func dataSourceRancher2RoleTemplateRead(d *schema.ResourceData, meta interface{}
 	}
 	listOpts := NewListOpts(filters)
 
-	roleTemplates, err := client.RoleTemplate.List(listOpts)
+	var roleTemplates *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		roleTemplates, err = client.RoleTemplate.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

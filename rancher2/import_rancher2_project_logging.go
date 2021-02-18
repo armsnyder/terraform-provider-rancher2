@@ -9,7 +9,11 @@ func resourceRancher2ProjectLoggingImport(d *schema.ResourceData, meta interface
 	if err != nil {
 		return []*schema.ResourceData{}, err
 	}
-	projectLogging, err := client.ProjectLogging.ByID(d.Id())
+	var projectLogging *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectLogging, err = client.ProjectLogging.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return []*schema.ResourceData{}, err
 	}

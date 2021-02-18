@@ -39,7 +39,11 @@ func resourceRancher2PodSecurityPolicyTemplateCreate(d *schema.ResourceData, met
 		return err
 	}
 
-	newPodSecurityPolicyTemplate, err := client.PodSecurityPolicyTemplate.Create(podSecurityPolicyTemplate)
+	var newPodSecurityPolicyTemplate *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newPodSecurityPolicyTemplate, err = client.PodSecurityPolicyTemplate.Create(podSecurityPolicyTemplate)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -56,7 +60,11 @@ func resourceRancher2PodSecurityPolicyTemplateRead(d *schema.ResourceData, meta 
 		return err
 	}
 
-	pspt, err := client.PodSecurityPolicyTemplate.ByID(d.Id())
+	var pspt *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		pspt, err = client.PodSecurityPolicyTemplate.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] PodSecurityPolicyTemplate with ID %s not found.", d.Id())
@@ -76,7 +84,11 @@ func resourceRancher2PodSecurityPolicyTemplateUpdate(d *schema.ResourceData, met
 		return err
 	}
 
-	pspt, err := client.PodSecurityPolicyTemplate.ByID(d.Id())
+	var pspt *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		pspt, err = client.PodSecurityPolicyTemplate.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -99,7 +111,11 @@ func resourceRancher2PodSecurityPolicyTemplateDelete(d *schema.ResourceData, met
 		return err
 	}
 
-	pspt, err := client.PodSecurityPolicyTemplate.ByID(id)
+	var pspt *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		pspt, err = client.PodSecurityPolicyTemplate.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] PodSecurityPolicyTemplate with ID %s not found.", id)
@@ -136,7 +152,11 @@ func resourceRancher2PodSecurityPolicyTemplateDelete(d *schema.ResourceData, met
 // podSecurityPolicyTemplateStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher PodSecurityPolicyTemplate
 func podSecurityPolicyTemplateStateRefreshFunc(client *managementClient.Client, pspID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.PodSecurityPolicyTemplate.ByID(pspID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.PodSecurityPolicyTemplate.ByID(pspID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil

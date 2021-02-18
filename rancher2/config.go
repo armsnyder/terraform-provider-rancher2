@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-version"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/rancher/norman/clientbase"
 	"github.com/rancher/norman/types"
 	types2 "github.com/rancher/rancher/pkg/api/steve/catalog/types"
@@ -51,6 +52,7 @@ type Config struct {
 	ClusterID            string `json:"clusterId"`
 	ProjectID            string `json:"projectId"`
 	Retries              int
+	RetryTimeout         time.Duration
 	RancherVersion       string
 	K8SDefaultVersion    string
 	K8SSupportedVersions []string
@@ -71,7 +73,11 @@ func (c *Config) GetRancherVersion() (string, error) {
 		}
 	}
 
-	version, err := c.Client.Management.Setting.ByID("server-version")
+	var version *managementClient.Setting
+	err := c.WithRetry(func() (err error) {
+		version, err = c.Client.Management.Setting.ByID("server-version")
+		return err
+	})
 	if err != nil {
 		return "", fmt.Errorf("[ERROR] Getting Rancher version: %s", err)
 	}
@@ -106,7 +112,11 @@ func (c *Config) getK8SDefaultVersion() (string, error) {
 		}
 	}
 
-	k8sVer, err := c.Client.Management.Setting.ByID("k8s-version")
+	var k8sVer *managementClient.Setting
+	err := c.WithRetry(func() (err error) {
+		k8sVer, err = c.Client.Management.Setting.ByID("k8s-version")
+		return err
+	})
 	if err != nil {
 		return "", err
 	}
@@ -130,7 +140,11 @@ func (c *Config) getK8SVersions() ([]string, error) {
 		return nil, nil
 	}
 
-	RKEK8sSystemImageCollection, err := c.Client.Management.RkeK8sSystemImage.ListAll(NewListOpts(nil))
+	var RKEK8sSystemImageCollection *managementClient.RkeK8sSystemImageCollection
+	err := c.WithRetry(func() (err error) {
+		RKEK8sSystemImageCollection, err = c.Client.Management.RkeK8sSystemImage.ListAll(NewListOpts(nil))
+		return err
+	})
 	if err != nil {
 		return nil, fmt.Errorf("[ERROR] Listing RKE K8s System Images: %s", err)
 	}
@@ -235,7 +249,11 @@ func (c *Config) ManagementClient() (*managementClient.Client, error) {
 	// Setup the management client
 	options := c.CreateClientOpts()
 	options.URL = options.URL + rancher2ClientAPIVersion
-	mClient, err := managementClient.NewClient(options)
+	var mClient *managementClient.Client
+	err = c.WithRetry(func() (err error) {
+		mClient, err = managementClient.NewClient(options)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -278,7 +296,11 @@ func (c *Config) CatalogV2Client(id string) (*clientbase.APIBaseClient, error) {
 	// Setup the cluster client
 	options := c.CreateClientOpts()
 	options.URL = options.URL + "/k8s/clusters/" + id + rancher2CatalogAPIVersion
-	cli, err := clientbase.NewAPIClient(options)
+	var cli clientbase.APIBaseClient
+	err = c.WithRetry(func() (err error) {
+		cli, err = clientbase.NewAPIClient(options)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +333,11 @@ func (c *Config) ClusterClient(id string) (*clusterClient.Client, error) {
 	// Setup the cluster client
 	options := c.CreateClientOpts()
 	options.URL = options.URL + rancher2ClientAPIVersion + "/clusters/" + id
-	cClient, err := clusterClient.NewClient(options)
+	var cClient *clusterClient.Client
+	err = c.WithRetry(func() (err error) {
+		cClient, err = clusterClient.NewClient(options)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +371,11 @@ func (c *Config) ProjectClient(id string) (*projectClient.Client, error) {
 	// Setup the project client
 	options := c.CreateClientOpts()
 	options.URL = options.URL + rancher2ClientAPIVersion + "/projects/" + id
-	pClient, err := projectClient.NewClient(options)
+	var pClient *projectClient.Client
+	err = c.WithRetry(func() (err error) {
+		pClient, err = projectClient.NewClient(options)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -384,7 +414,11 @@ func (c *Config) GetProjectRoleTemplateBindingsByProjectID(projectID string) ([]
 	filters := map[string]interface{}{"ProjectID": projectID}
 	listOpts := NewListOpts(filters)
 
-	collection, err := client.ProjectRoleTemplateBinding.List(listOpts)
+	var collection *managementClient.ProjectRoleTemplateBindingCollection
+	err = c.WithRetry(func() (err error) {
+		collection, err = client.ProjectRoleTemplateBinding.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +476,11 @@ func (c *Config) GetProjectByName(name, clusterID string) (*managementClient.Pro
 	filters := map[string]interface{}{"clusterId": clusterID, "name": name}
 	listOpts := NewListOpts(filters)
 
-	collection, err := client.Project.List(listOpts)
+	var collection *managementClient.ProjectCollection
+	err = c.WithRetry(func() (err error) {
+		collection, err = client.Project.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -489,7 +527,13 @@ func (c *Config) GetProjectByID(id string) (*managementClient.Project, error) {
 		return nil, err
 	}
 
-	return client.Project.ByID(id)
+	var result *managementClient.Project
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Project.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) ProjectExist(id string) error {
@@ -511,7 +555,13 @@ func (c *Config) GetGlobalRoleByID(id string) (*managementClient.GlobalRole, err
 		return nil, err
 	}
 
-	return client.GlobalRole.ByID(id)
+	var result *managementClient.GlobalRole
+	err = c.WithRetry(func() (err error) {
+		result, err = client.GlobalRole.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) GlobalRoleExist(id string) error {
@@ -533,7 +583,13 @@ func (c *Config) GetRoleTemplateByID(id string) (*managementClient.RoleTemplate,
 		return nil, err
 	}
 
-	return client.RoleTemplate.ByID(id)
+	var result *managementClient.RoleTemplate
+	err = c.WithRetry(func() (err error) {
+		result, err = client.RoleTemplate.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) RoleTemplateExist(id string) error {
@@ -558,7 +614,11 @@ func (c *Config) GetClusterProjects(id string) ([]managementClient.Project, erro
 	filters := map[string]interface{}{"clusterId": id}
 	listOpts := NewListOpts(filters)
 
-	collection, err := client.Project.List(listOpts)
+	var collection *managementClient.ProjectCollection
+	err = c.WithRetry(func() (err error) {
+		collection, err = client.Project.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -609,7 +669,11 @@ func (c *Config) GetClusterByName(name string) (*managementClient.Cluster, error
 	filters := map[string]interface{}{"name": name}
 	listOpts := NewListOpts(filters)
 
-	collection, err := client.Cluster.List(listOpts)
+	var collection *managementClient.ClusterCollection
+	err = c.WithRetry(func() (err error) {
+		collection, err = client.Cluster.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -644,7 +708,13 @@ func (c *Config) GetClusterByID(id string) (*managementClient.Cluster, error) {
 		return nil, err
 	}
 
-	return client.Cluster.ByID(id)
+	var result *managementClient.Cluster
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Cluster.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) GetSettingV2ByID(clusterID, id string) (*SettingV2, error) {
@@ -706,7 +776,9 @@ func (c *Config) DeleteCatalogV2(clusterID string, repo *ClusterRepo) error {
 		Links:   repo.Links,
 		Actions: repo.Actions,
 	}
-	return client.Delete(resource)
+	return c.WithRetry(func() error {
+		return client.Delete(resource)
+	})
 }
 
 func (c *Config) UpdateCatalogV2(clusterID, id string, update *ClusterRepo) (*ClusterRepo, error) {
@@ -755,8 +827,18 @@ func (c *Config) GetAppV2OperationByID(clusterID, id string) (map[string]interfa
 	if err != nil {
 		return nil, err
 	}
+
 	resp := map[string]interface{}{}
-	err = client.ByID(appV2OperationAPIType, id, &resp)
+
+	err = resource.Retry(10*time.Second, func() *resource.RetryError {
+		err := client.ByID(appV2OperationAPIType, id, &resp)
+
+		if asAPIError, ok := err.(*clientbase.APIError); ok && asAPIError.StatusCode/100 == 5 {
+			return resource.RetryableError(err)
+		}
+
+		return resource.NonRetryableError(err)
+	})
 
 	return resp, err
 }
@@ -796,7 +878,9 @@ func (c *Config) DeleteAppV2(clusterID string, app *AppV2) error {
 		Actions: app.Actions,
 	}
 	var resp interface{}
-	return client.Action(appV2APIType, "uninstall", resource, map[string]interface{}{}, resp)
+	return c.WithRetry(func() error {
+		return client.Action(appV2APIType, "uninstall", resource, map[string]interface{}{}, resp)
+	})
 }
 
 func (c *Config) InfoAppV2(clusterID, repoName, chartName, chartVersion string) (*ClusterRepo, *types2.ChartInfo, error) {
@@ -890,7 +974,13 @@ func (c *Config) UpdateClusterByID(cluster *managementClient.Cluster, update map
 		return nil, err
 	}
 
-	return client.Cluster.Update(cluster, update)
+	var result *managementClient.Cluster
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Cluster.Update(cluster, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) isClusterActive(id string) (bool, *managementClient.Cluster, error) {
@@ -925,7 +1015,13 @@ func (c *Config) GetClusterRegistrationTokenByID(id string) (*managementClient.C
 		return nil, err
 	}
 
-	return client.ClusterRegistrationToken.ByID(id)
+	var result *managementClient.ClusterRegistrationToken
+	err = c.WithRetry(func() (err error) {
+		result, err = client.ClusterRegistrationToken.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) ClusterRegistrationTokenExist(id string) error {
@@ -948,7 +1044,11 @@ func (c *Config) CheckAuthConfigEnabled(id string) error {
 	}
 
 	listOpts := NewListOpts(nil)
-	auths, err := client.AuthConfig.List(listOpts)
+	var auths *managementClient.AuthConfigCollection
+	err = c.WithRetry(func() (err error) {
+		auths, err = client.AuthConfig.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -1000,7 +1100,11 @@ func (c *Config) GetUserByName(name string) (*managementClient.User, error) {
 	filters := map[string]interface{}{"username": name}
 	listOpts := NewListOpts(filters)
 
-	collection, err := client.User.List(listOpts)
+	var collection *managementClient.UserCollection
+	err = c.WithRetry(func() (err error) {
+		collection, err = client.User.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1034,7 +1138,11 @@ func (c *Config) activateNodeDriver(id string) error {
 		return err
 	}
 
-	driver, err := client.NodeDriver.ByID(id)
+	var driver *managementClient.NodeDriver
+	err = c.WithRetry(func() (err error) {
+		driver, err = client.NodeDriver.ByID(id)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("[ERROR] Getting Node Driver %s: %v", id, err)
 	}
@@ -1093,7 +1201,11 @@ func (c *Config) SetUserPassword(user *managementClient.User, pass string) (bool
 	}
 
 	password := &managementClient.SetPasswordInput{NewPassword: pass}
-	newUser, err := client.User.ActionSetpassword(user, password)
+	var newUser *managementClient.User
+	err = c.WithRetry(func() (err error) {
+		newUser, err = client.User.ActionSetpassword(user, password)
+		return err
+	})
 	if err != nil {
 		return false, nil, fmt.Errorf("[ERROR] Setting %s password: %s", user.Username, err)
 	}
@@ -1124,7 +1236,11 @@ func (c *Config) GenerateUserToken(username, desc string, ttl int) (string, stri
 		TTLMillis:   tokenTTL,
 	}
 
-	newToken, err := client.Token.Create(token)
+	var newToken *managementClient.Token
+	err = c.WithRetry(func() (err error) {
+		newToken, err = client.Token.Create(token)
+		return err
+	})
 	if err != nil {
 		return "", "", fmt.Errorf("[ERROR] Creating Admin token: %s", err)
 	}
@@ -1142,7 +1258,11 @@ func (c *Config) IsTokenExpired(id string) (bool, error) {
 		return false, err
 	}
 
-	token, err := client.Token.ByID(id)
+	var token *managementClient.Token
+	err = c.WithRetry(func() (err error) {
+		token, err = client.Token.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			return true, nil
@@ -1163,7 +1283,11 @@ func (c *Config) DeleteToken(id string) error {
 		return err
 	}
 
-	token, err := client.Token.ByID(id)
+	var token *managementClient.Token
+	err = c.WithRetry(func() (err error) {
+		token, err = client.Token.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			return nil
@@ -1171,7 +1295,9 @@ func (c *Config) DeleteToken(id string) error {
 		return err
 	}
 
-	return client.Token.Delete(token)
+	return c.WithRetry(func() error {
+		return client.Token.Delete(token)
+	})
 }
 
 func (c *Config) GetSetting(name string) (*managementClient.Setting, error) {
@@ -1180,7 +1306,13 @@ func (c *Config) GetSetting(name string) (*managementClient.Setting, error) {
 		return nil, err
 	}
 
-	return client.Setting.ByID(name)
+	var result *managementClient.Setting
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Setting.ByID(name)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) SetSetting(name, value string) error {
@@ -1230,11 +1362,29 @@ func (c *Config) GetCatalogByName(name, scope string) (interface{}, error) {
 
 	switch scope {
 	case catalogScopeCluster:
-		return client.ClusterCatalog.List(listOpts)
+		var result *managementClient.ClusterCatalogCollection
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ClusterCatalog.List(listOpts)
+			return err
+		})
+
+		return result, err
 	case catalogScopeGlobal:
-		return client.Catalog.List(listOpts)
+		var result *managementClient.CatalogCollection
+		err = c.WithRetry(func() (err error) {
+			result, err = client.Catalog.List(listOpts)
+			return err
+		})
+
+		return result, err
 	case catalogScopeProject:
-		return client.ProjectCatalog.List(listOpts)
+		var result *managementClient.ProjectCatalogCollection
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ProjectCatalog.List(listOpts)
+			return err
+		})
+
+		return result, err
 	default:
 		return nil, fmt.Errorf("[ERROR] Unsupported scope on catalog: %s", scope)
 	}
@@ -1252,11 +1402,29 @@ func (c *Config) GetCatalog(id, scope string) (interface{}, error) {
 
 	switch scope {
 	case catalogScopeCluster:
-		return client.ClusterCatalog.ByID(id)
+		var result *managementClient.ClusterCatalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ClusterCatalog.ByID(id)
+			return err
+		})
+
+		return result, err
 	case catalogScopeGlobal:
-		return client.Catalog.ByID(id)
+		var result *managementClient.Catalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.Catalog.ByID(id)
+			return err
+		})
+
+		return result, err
 	case catalogScopeProject:
-		return client.ProjectCatalog.ByID(id)
+		var result *managementClient.ProjectCatalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ProjectCatalog.ByID(id)
+			return err
+		})
+
+		return result, err
 	default:
 		return nil, fmt.Errorf("[ERROR] Unsupported scope on catalog: %s", scope)
 	}
@@ -1274,11 +1442,29 @@ func (c *Config) CreateCatalog(scope string, catalog interface{}) (interface{}, 
 
 	switch scope {
 	case catalogScopeCluster:
-		return client.ClusterCatalog.Create(catalog.(*managementClient.ClusterCatalog))
+		var result *managementClient.ClusterCatalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ClusterCatalog.Create(catalog.(*managementClient.ClusterCatalog))
+			return err
+		})
+
+		return result, err
 	case catalogScopeGlobal:
-		return client.Catalog.Create(catalog.(*managementClient.Catalog))
+		var result *managementClient.Catalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.Catalog.Create(catalog.(*managementClient.Catalog))
+			return err
+		})
+
+		return result, err
 	case catalogScopeProject:
-		return client.ProjectCatalog.Create(catalog.(*managementClient.ProjectCatalog))
+		var result *managementClient.ProjectCatalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ProjectCatalog.Create(catalog.(*managementClient.ProjectCatalog))
+			return err
+		})
+
+		return result, err
 	default:
 		return nil, fmt.Errorf("[ERROR] Unsupported scope on catalog: %s", scope)
 	}
@@ -1296,11 +1482,29 @@ func (c *Config) UpdateCatalog(scope string, catalog interface{}, update map[str
 
 	switch scope {
 	case catalogScopeCluster:
-		return client.ClusterCatalog.Update(catalog.(*managementClient.ClusterCatalog), update)
+		var result *managementClient.ClusterCatalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ClusterCatalog.Update(catalog.(*managementClient.ClusterCatalog), update)
+			return err
+		})
+
+		return result, err
 	case catalogScopeGlobal:
-		return client.Catalog.Update(catalog.(*managementClient.Catalog), update)
+		var result *managementClient.Catalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.Catalog.Update(catalog.(*managementClient.Catalog), update)
+			return err
+		})
+
+		return result, err
 	case catalogScopeProject:
-		return client.ProjectCatalog.Update(catalog.(*managementClient.ProjectCatalog), update)
+		var result *managementClient.ProjectCatalog
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ProjectCatalog.Update(catalog.(*managementClient.ProjectCatalog), update)
+			return err
+		})
+
+		return result, err
 	default:
 		return nil, fmt.Errorf("[ERROR] Unsupported scope on catalog: %s", scope)
 	}
@@ -1318,11 +1522,17 @@ func (c *Config) DeleteCatalog(scope string, catalog interface{}) error {
 
 	switch scope {
 	case catalogScopeCluster:
-		return client.ClusterCatalog.Delete(catalog.(*managementClient.ClusterCatalog))
+		return c.WithRetry(func() error {
+			return client.ClusterCatalog.Delete(catalog.(*managementClient.ClusterCatalog))
+		})
 	case catalogScopeGlobal:
-		return client.Catalog.Delete(catalog.(*managementClient.Catalog))
+		return c.WithRetry(func() error {
+			return client.Catalog.Delete(catalog.(*managementClient.Catalog))
+		})
 	case catalogScopeProject:
-		return client.ProjectCatalog.Delete(catalog.(*managementClient.ProjectCatalog))
+		return c.WithRetry(func() error {
+			return client.ProjectCatalog.Delete(catalog.(*managementClient.ProjectCatalog))
+		})
 	default:
 		return fmt.Errorf("[ERROR] Unsupported scope on catalog: %s", scope)
 	}
@@ -1340,11 +1550,29 @@ func (c *Config) RefreshCatalog(scope string, catalog interface{}) (*managementC
 
 	switch scope {
 	case catalogScopeCluster:
-		return client.ClusterCatalog.ActionRefresh(catalog.(*managementClient.ClusterCatalog))
+		var result *managementClient.CatalogRefresh
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ClusterCatalog.ActionRefresh(catalog.(*managementClient.ClusterCatalog))
+			return err
+		})
+
+		return result, err
 	case catalogScopeGlobal:
-		return client.Catalog.ActionRefresh(catalog.(*managementClient.Catalog))
+		var result *managementClient.CatalogRefresh
+		err = c.WithRetry(func() (err error) {
+			result, err = client.Catalog.ActionRefresh(catalog.(*managementClient.Catalog))
+			return err
+		})
+
+		return result, err
 	case catalogScopeProject:
-		return client.ProjectCatalog.ActionRefresh(catalog.(*managementClient.ProjectCatalog))
+		var result *managementClient.CatalogRefresh
+		err = c.WithRetry(func() (err error) {
+			result, err = client.ProjectCatalog.ActionRefresh(catalog.(*managementClient.ProjectCatalog))
+			return err
+		})
+
+		return result, err
 	default:
 		return nil, fmt.Errorf("[ERROR] Unsupported scope on catalog: %s", scope)
 	}
@@ -1388,10 +1616,22 @@ func (c *Config) GetRegistryByFilters(filters map[string]interface{}) (interface
 	listOpts := NewListOpts(filters)
 
 	if filters["namespaceId"] != nil {
-		return client.NamespacedDockerCredential.List(listOpts)
+		var result *projectClient.NamespacedDockerCredentialCollection
+		err = c.WithRetry(func() (err error) {
+			result, err = client.NamespacedDockerCredential.List(listOpts)
+			return err
+		})
+
+		return result, err
 	}
 
-	return client.DockerCredential.List(listOpts)
+	var result *projectClient.DockerCredentialCollection
+	err = c.WithRetry(func() (err error) {
+		result, err = client.DockerCredential.List(listOpts)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) GetRegistry(id, projectID, namespaceID string) (interface{}, error) {
@@ -1405,10 +1645,22 @@ func (c *Config) GetRegistry(id, projectID, namespaceID string) (interface{}, er
 	}
 
 	if len(namespaceID) > 0 {
-		return client.NamespacedDockerCredential.ByID(id)
+		var result *projectClient.NamespacedDockerCredential
+		err = c.WithRetry(func() (err error) {
+			result, err = client.NamespacedDockerCredential.ByID(id)
+			return err
+		})
+
+		return result, err
 	}
 
-	return client.DockerCredential.ByID(id)
+	var result *projectClient.DockerCredential
+	err = c.WithRetry(func() (err error) {
+		result, err = client.DockerCredential.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) createDockerCredential(registry *projectClient.DockerCredential) (*projectClient.DockerCredential, error) {
@@ -1416,7 +1668,13 @@ func (c *Config) createDockerCredential(registry *projectClient.DockerCredential
 	if err != nil {
 		return nil, err
 	}
-	return client.DockerCredential.Create(registry)
+	var result *projectClient.DockerCredential
+	err = c.WithRetry(func() (err error) {
+		result, err = client.DockerCredential.Create(registry)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) createNamespacedDockerCredential(registry *projectClient.NamespacedDockerCredential) (*projectClient.NamespacedDockerCredential, error) {
@@ -1424,7 +1682,13 @@ func (c *Config) createNamespacedDockerCredential(registry *projectClient.Namesp
 	if err != nil {
 		return nil, err
 	}
-	return client.NamespacedDockerCredential.Create(registry)
+	var result *projectClient.NamespacedDockerCredential
+	err = c.WithRetry(func() (err error) {
+		result, err = client.NamespacedDockerCredential.Create(registry)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) CreateRegistry(registry interface{}) (interface{}, error) {
@@ -1447,7 +1711,13 @@ func (c *Config) updateDockerCredential(registry *projectClient.DockerCredential
 	if err != nil {
 		return nil, err
 	}
-	return client.DockerCredential.Update(registry, update)
+	var result *projectClient.DockerCredential
+	err = c.WithRetry(func() (err error) {
+		result, err = client.DockerCredential.Update(registry, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) updateNamespacedDockerCredential(registry *projectClient.NamespacedDockerCredential, update map[string]interface{}) (*projectClient.NamespacedDockerCredential, error) {
@@ -1455,7 +1725,13 @@ func (c *Config) updateNamespacedDockerCredential(registry *projectClient.Namesp
 	if err != nil {
 		return nil, err
 	}
-	return client.NamespacedDockerCredential.Update(registry, update)
+	var result *projectClient.NamespacedDockerCredential
+	err = c.WithRetry(func() (err error) {
+		result, err = client.NamespacedDockerCredential.Update(registry, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) UpdateRegistry(registry interface{}, update map[string]interface{}) (interface{}, error) {
@@ -1478,7 +1754,9 @@ func (c *Config) deleteDockerCredential(registry *projectClient.DockerCredential
 	if err != nil {
 		return err
 	}
-	return client.DockerCredential.Delete(registry)
+	return c.WithRetry(func() error {
+		return client.DockerCredential.Delete(registry)
+	})
 }
 
 func (c *Config) deleteNamespacedDockerCredential(registry *projectClient.NamespacedDockerCredential) error {
@@ -1486,7 +1764,9 @@ func (c *Config) deleteNamespacedDockerCredential(registry *projectClient.Namesp
 	if err != nil {
 		return err
 	}
-	return client.NamespacedDockerCredential.Delete(registry)
+	return c.WithRetry(func() error {
+		return client.NamespacedDockerCredential.Delete(registry)
+	})
 }
 
 func (c *Config) DeleteRegistry(registry interface{}) error {
@@ -1517,10 +1797,22 @@ func (c *Config) GetSecretByFilters(filters map[string]interface{}) (interface{}
 	listOpts := NewListOpts(filters)
 
 	if filters["namespaceId"] != nil {
-		return client.NamespacedSecret.List(listOpts)
+		var result *projectClient.NamespacedSecretCollection
+		err = c.WithRetry(func() (err error) {
+			result, err = client.NamespacedSecret.List(listOpts)
+			return err
+		})
+
+		return result, err
 	}
 
-	return client.Secret.List(listOpts)
+	var result *projectClient.SecretCollection
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Secret.List(listOpts)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) GetSecret(id, projectID, namespaceID string) (interface{}, error) {
@@ -1534,10 +1826,22 @@ func (c *Config) GetSecret(id, projectID, namespaceID string) (interface{}, erro
 	}
 
 	if len(namespaceID) > 0 {
-		return client.NamespacedSecret.ByID(id)
+		var result *projectClient.NamespacedSecret
+		err = c.WithRetry(func() (err error) {
+			result, err = client.NamespacedSecret.ByID(id)
+			return err
+		})
+
+		return result, err
 	}
 
-	return client.Secret.ByID(id)
+	var result *projectClient.Secret
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Secret.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) createSecret(secret *projectClient.Secret) (*projectClient.Secret, error) {
@@ -1545,7 +1849,13 @@ func (c *Config) createSecret(secret *projectClient.Secret) (*projectClient.Secr
 	if err != nil {
 		return nil, err
 	}
-	return client.Secret.Create(secret)
+	var result *projectClient.Secret
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Secret.Create(secret)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) createNamespacedSecret(secret *projectClient.NamespacedSecret) (*projectClient.NamespacedSecret, error) {
@@ -1553,7 +1863,13 @@ func (c *Config) createNamespacedSecret(secret *projectClient.NamespacedSecret) 
 	if err != nil {
 		return nil, err
 	}
-	return client.NamespacedSecret.Create(secret)
+	var result *projectClient.NamespacedSecret
+	err = c.WithRetry(func() (err error) {
+		result, err = client.NamespacedSecret.Create(secret)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) CreateSecret(secret interface{}) (interface{}, error) {
@@ -1576,7 +1892,13 @@ func (c *Config) updateSecret(secret *projectClient.Secret, update map[string]in
 	if err != nil {
 		return nil, err
 	}
-	return client.Secret.Update(secret, update)
+	var result *projectClient.Secret
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Secret.Update(secret, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) updateNamespacedSecret(secret *projectClient.NamespacedSecret, update map[string]interface{}) (*projectClient.NamespacedSecret, error) {
@@ -1584,7 +1906,13 @@ func (c *Config) updateNamespacedSecret(secret *projectClient.NamespacedSecret, 
 	if err != nil {
 		return nil, err
 	}
-	return client.NamespacedSecret.Update(secret, update)
+	var result *projectClient.NamespacedSecret
+	err = c.WithRetry(func() (err error) {
+		result, err = client.NamespacedSecret.Update(secret, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) UpdateSecret(secret interface{}, update map[string]interface{}) (interface{}, error) {
@@ -1607,7 +1935,9 @@ func (c *Config) deleteSecret(secret *projectClient.Secret) error {
 	if err != nil {
 		return err
 	}
-	return client.Secret.Delete(secret)
+	return c.WithRetry(func() error {
+		return client.Secret.Delete(secret)
+	})
 }
 
 func (c *Config) deleteNamespacedSecret(secret *projectClient.NamespacedSecret) error {
@@ -1615,7 +1945,9 @@ func (c *Config) deleteNamespacedSecret(secret *projectClient.NamespacedSecret) 
 	if err != nil {
 		return err
 	}
-	return client.NamespacedSecret.Delete(secret)
+	return c.WithRetry(func() error {
+		return client.NamespacedSecret.Delete(secret)
+	})
 }
 
 func (c *Config) DeleteSecret(secret interface{}) error {
@@ -1646,10 +1978,22 @@ func (c *Config) GetCertificateByFilters(filters map[string]interface{}) (interf
 	listOpts := NewListOpts(filters)
 
 	if filters["namespaceId"] != nil {
-		return client.NamespacedCertificate.List(listOpts)
+		var result *projectClient.NamespacedCertificateCollection
+		err = c.WithRetry(func() (err error) {
+			result, err = client.NamespacedCertificate.List(listOpts)
+			return err
+		})
+
+		return result, err
 	}
 
-	return client.Certificate.List(listOpts)
+	var result *projectClient.CertificateCollection
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Certificate.List(listOpts)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) GetCertificate(id, projectID, namespaceID string) (interface{}, error) {
@@ -1663,10 +2007,22 @@ func (c *Config) GetCertificate(id, projectID, namespaceID string) (interface{},
 	}
 
 	if len(namespaceID) > 0 {
-		return client.NamespacedCertificate.ByID(id)
+		var result *projectClient.NamespacedCertificate
+		err = c.WithRetry(func() (err error) {
+			result, err = client.NamespacedCertificate.ByID(id)
+			return err
+		})
+
+		return result, err
 	}
 
-	return client.Certificate.ByID(id)
+	var result *projectClient.Certificate
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Certificate.ByID(id)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) createCertificate(cert *projectClient.Certificate) (*projectClient.Certificate, error) {
@@ -1674,7 +2030,13 @@ func (c *Config) createCertificate(cert *projectClient.Certificate) (*projectCli
 	if err != nil {
 		return nil, err
 	}
-	return client.Certificate.Create(cert)
+	var result *projectClient.Certificate
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Certificate.Create(cert)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) createNamespacedCertificate(cert *projectClient.NamespacedCertificate) (*projectClient.NamespacedCertificate, error) {
@@ -1682,7 +2044,13 @@ func (c *Config) createNamespacedCertificate(cert *projectClient.NamespacedCerti
 	if err != nil {
 		return nil, err
 	}
-	return client.NamespacedCertificate.Create(cert)
+	var result *projectClient.NamespacedCertificate
+	err = c.WithRetry(func() (err error) {
+		result, err = client.NamespacedCertificate.Create(cert)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) CreateCertificate(cert interface{}) (interface{}, error) {
@@ -1705,7 +2073,13 @@ func (c *Config) updateCertificate(cert *projectClient.Certificate, update inter
 	if err != nil {
 		return nil, err
 	}
-	return client.Certificate.Update(cert, update)
+	var result *projectClient.Certificate
+	err = c.WithRetry(func() (err error) {
+		result, err = client.Certificate.Update(cert, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) updateNamespacedCertificate(cert *projectClient.NamespacedCertificate, update interface{}) (*projectClient.NamespacedCertificate, error) {
@@ -1713,7 +2087,13 @@ func (c *Config) updateNamespacedCertificate(cert *projectClient.NamespacedCerti
 	if err != nil {
 		return nil, err
 	}
-	return client.NamespacedCertificate.Update(cert, update)
+	var result *projectClient.NamespacedCertificate
+	err = c.WithRetry(func() (err error) {
+		result, err = client.NamespacedCertificate.Update(cert, update)
+		return err
+	})
+
+	return result, err
 }
 
 func (c *Config) UpdateCertificate(cert interface{}, update interface{}) (interface{}, error) {
@@ -1736,7 +2116,9 @@ func (c *Config) deleteCertificate(cert *projectClient.Certificate) error {
 	if err != nil {
 		return err
 	}
-	return client.Certificate.Delete(cert)
+	return c.WithRetry(func() error {
+		return client.Certificate.Delete(cert)
+	})
 }
 
 func (c *Config) deleteNamespacedCertificate(cert *projectClient.NamespacedCertificate) error {
@@ -1744,7 +2126,9 @@ func (c *Config) deleteNamespacedCertificate(cert *projectClient.NamespacedCerti
 	if err != nil {
 		return err
 	}
-	return client.NamespacedCertificate.Delete(cert)
+	return c.WithRetry(func() error {
+		return client.NamespacedCertificate.Delete(cert)
+	})
 }
 
 func (c *Config) DeleteCertificate(cert interface{}) error {
@@ -1772,7 +2156,11 @@ func (c *Config) GetRecipientByNotifier(id string) (*managementClient.Recipient,
 		return nil, err
 	}
 
-	notifier, err := client.Notifier.ByID(id)
+	var notifier *managementClient.Notifier
+	err = c.WithRetry(func() (err error) {
+		notifier, err = client.Notifier.ByID(id)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -1802,4 +2190,22 @@ func (c *Config) GetRecipientByNotifier(id string) (*managementClient.Recipient,
 	}
 
 	return out, nil
+}
+
+// WithRetry runs and retries the provided function if the error is a retriable server error.
+func (c *Config) WithRetry(fn func() error) error {
+	if c.RetryTimeout == 0 {
+		return fn()
+	}
+
+	return resource.Retry(c.RetryTimeout, func() *resource.RetryError {
+		err := fn()
+		if err != nil {
+			if IsServerError(err) {
+				return resource.RetryableError(err)
+			}
+			return resource.NonRetryableError(err)
+		}
+		return nil
+	})
 }

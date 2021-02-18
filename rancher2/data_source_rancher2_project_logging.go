@@ -113,7 +113,11 @@ func dataSourceRancher2ProjectLoggingRead(d *schema.ResourceData, meta interface
 	}
 	listOpts := NewListOpts(filters)
 
-	projectLoggings, err := client.ProjectLogging.List(listOpts)
+	var projectLoggings *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectLoggings, err = client.ProjectLogging.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

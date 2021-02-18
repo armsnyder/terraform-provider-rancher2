@@ -75,7 +75,11 @@ func dataSourceRancher2ClusterScanRead(d *schema.ResourceData, meta interface{})
 	}
 	listOpts := NewListOpts(filters)
 
-	clusterScans, err := client.ClusterScan.List(listOpts)
+	var clusterScans *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterScans, err = client.ClusterScan.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

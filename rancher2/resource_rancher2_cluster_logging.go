@@ -47,7 +47,11 @@ func resourceRancher2ClusterLoggingCreate(d *schema.ResourceData, meta interface
 
 	log.Printf("[INFO] Creating Cluster Logging %s", clusterLogging.Name)
 
-	newClusterLogging, err := client.ClusterLogging.Create(clusterLogging)
+	var newClusterLogging *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newClusterLogging, err = client.ClusterLogging.Create(clusterLogging)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -78,7 +82,11 @@ func resourceRancher2ClusterLoggingRead(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	clusterLogging, err := client.ClusterLogging.ByID(d.Id())
+	var clusterLogging *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterLogging, err = client.ClusterLogging.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Cluster Logging ID %s not found.", d.Id())
@@ -98,7 +106,11 @@ func resourceRancher2ClusterLoggingUpdate(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	clusterLogging, err := client.ClusterLogging.ByID(d.Id())
+	var clusterLogging *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterLogging, err = client.ClusterLogging.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -151,7 +163,11 @@ func resourceRancher2ClusterLoggingUpdate(d *schema.ResourceData, meta interface
 		update["syslogConfig"] = syslogConfig
 	}
 
-	newClusterLogging, err := client.ClusterLogging.Update(clusterLogging, update)
+	var newClusterLogging *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newClusterLogging, err = client.ClusterLogging.Update(clusterLogging, update)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -181,7 +197,11 @@ func resourceRancher2ClusterLoggingDelete(d *schema.ResourceData, meta interface
 		return err
 	}
 
-	clusterLogging, err := client.ClusterLogging.ByID(id)
+	var clusterLogging *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		clusterLogging, err = client.ClusterLogging.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Cluster Logging ID %s not found.", d.Id())
@@ -220,7 +240,11 @@ func resourceRancher2ClusterLoggingDelete(d *schema.ResourceData, meta interface
 // clusterLoggingStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher Cluster Role Template Binding.
 func clusterLoggingStateRefreshFunc(client *managementClient.Client, clusterLoggingID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.ClusterLogging.ByID(clusterLoggingID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.ClusterLogging.ByID(clusterLoggingID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil

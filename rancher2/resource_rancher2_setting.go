@@ -30,7 +30,11 @@ func resourceRancher2SettingCreate(d *schema.ResourceData, meta interface{}) err
 	}
 
 	// Checking if setting already exist, updating if already exist. setting id = setting name
-	exist, err := client.Setting.ByID(d.Get("name").(string))
+	var exist *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		exist, err = client.Setting.ByID(d.Get("name").(string))
+		return err
+	})
 	if err == nil {
 		d.SetId(exist.ID)
 		return resourceRancher2SettingUpdate(d, meta)
@@ -48,7 +52,11 @@ func resourceRancher2SettingCreate(d *schema.ResourceData, meta interface{}) err
 
 	log.Printf("[INFO] Creating Setting %s", setting.Name)
 
-	newSetting, err := client.Setting.Create(setting)
+	var newSetting *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newSetting, err = client.Setting.Create(setting)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -81,7 +89,11 @@ func resourceRancher2SettingRead(d *schema.ResourceData, meta interface{}) error
 		return err
 	}
 
-	setting, err := client.Setting.ByID(name)
+	var setting *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		setting, err = client.Setting.ByID(name)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Setting ID %s not found.", d.Id())
@@ -106,7 +118,11 @@ func resourceRancher2SettingUpdate(d *schema.ResourceData, meta interface{}) err
 		return err
 	}
 
-	setting, err := client.Setting.ByID(d.Id())
+	var setting *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		setting, err = client.Setting.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -117,7 +133,11 @@ func resourceRancher2SettingUpdate(d *schema.ResourceData, meta interface{}) err
 		"labels":      toMapString(d.Get("labels").(map[string]interface{})),
 	}
 
-	newSetting, err := client.Setting.Update(setting, update)
+	var newSetting *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newSetting, err = client.Setting.Update(setting, update)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -147,7 +167,11 @@ func resourceRancher2SettingDelete(d *schema.ResourceData, meta interface{}) err
 		return err
 	}
 
-	setting, err := client.Setting.ByID(id)
+	var setting *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		setting, err = client.Setting.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Setting ID %s not found.", id)
@@ -200,7 +224,11 @@ func resourceRancher2SettingDelete(d *schema.ResourceData, meta interface{}) err
 // settingStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher Project.
 func settingStateRefreshFunc(client *managementClient.Client, settingID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.Setting.ByID(settingID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.Setting.ByID(settingID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil

@@ -9,7 +9,11 @@ func resourceRancher2NodeDriverImport(d *schema.ResourceData, meta interface{}) 
 	if err != nil {
 		return []*schema.ResourceData{}, err
 	}
-	nodeDriver, err := client.NodeDriver.ByID(d.Id())
+	var nodeDriver *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		nodeDriver, err = client.NodeDriver.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return []*schema.ResourceData{}, err
 	}

@@ -2,6 +2,7 @@ package rancher2
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/validation"
@@ -86,6 +87,13 @@ func Provider() terraform.ResourceProvider {
 				Default:      10,
 				Description:  descriptions["retries"],
 				ValidateFunc: validation.IntBetween(1, 1000),
+			},
+			"retry_timeout": {
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "30s",
+				Description:  descriptions["retry_timeout"],
+				ValidateFunc: validateDurationBetween(0, time.Hour),
 			},
 		},
 
@@ -183,14 +191,15 @@ func Provider() terraform.ResourceProvider {
 
 func init() {
 	descriptions = map[string]string{
-		"access_key": "API Key used to authenticate with the rancher server",
-		"secret_key": "API secret used to authenticate with the rancher server",
-		"token_key":  "API token used to authenticate with the rancher server",
-		"ca_certs":   "CA certificates used to sign rancher server tls certificates. Mandatory if self signed tls and insecure option false",
-		"insecure":   "Allow insecure connections to Rancher. Mandatory if self signed tls and not ca_certs provided",
-		"api_url":    "The URL to the rancher API",
-		"bootstrap":  "Bootstrap rancher server",
-		"retries":    "Rancher connection retries",
+		"access_key":    "API Key used to authenticate with the rancher server",
+		"secret_key":    "API secret used to authenticate with the rancher server",
+		"token_key":     "API token used to authenticate with the rancher server",
+		"ca_certs":      "CA certificates used to sign rancher server tls certificates. Mandatory if self signed tls and insecure option false",
+		"insecure":      "Allow insecure connections to Rancher. Mandatory if self signed tls and not ca_certs provided",
+		"api_url":       "The URL to the rancher API",
+		"bootstrap":     "Bootstrap rancher server",
+		"retries":       "Rancher connection retries",
+		"retry_timeout": "Timeout for retrying internal server errors",
 	}
 }
 
@@ -203,19 +212,24 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 	insecure := d.Get("insecure").(bool)
 	bootstrap := d.Get("bootstrap").(bool)
 	retries := d.Get("retries").(int)
+	retryTimeout := d.Get("retry_timeout").(string)
 
 	// Set tokenKey based on accessKey and secretKey if needed
 	if tokenKey == providerDefaultEmptyString && accessKey != providerDefaultEmptyString && secretKey != providerDefaultEmptyString {
 		tokenKey = accessKey + ":" + secretKey
 	}
 
+	// Parse error should have been handled already in schema validation.
+	retryTimeoutDuration, _ := time.ParseDuration(retryTimeout)
+
 	config := &Config{
-		URL:       apiURL,
-		TokenKey:  tokenKey,
-		CACerts:   caCerts,
-		Insecure:  insecure,
-		Bootstrap: bootstrap,
-		Retries:   retries,
+		URL:          apiURL,
+		TokenKey:     tokenKey,
+		CACerts:      caCerts,
+		Insecure:     insecure,
+		Bootstrap:    bootstrap,
+		Retries:      retries,
+		RetryTimeout: retryTimeoutDuration,
 	}
 
 	return providerValidateConfig(config)

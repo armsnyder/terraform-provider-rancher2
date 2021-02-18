@@ -71,7 +71,11 @@ func dataSourceRancher2ProjectRoleTemplateBindingRead(d *schema.ResourceData, me
 	}
 	listOpts := NewListOpts(filters)
 
-	projectRoleTemplateBindings, err := client.ProjectRoleTemplateBinding.List(listOpts)
+	var projectRoleTemplateBindings *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		projectRoleTemplateBindings, err = client.ProjectRoleTemplateBinding.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

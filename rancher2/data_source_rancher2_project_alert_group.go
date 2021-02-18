@@ -76,7 +76,11 @@ func dataSourceRancher2ProjectAlertGroupRead(d *schema.ResourceData, meta interf
 	}
 	listOpts := NewListOpts(filters)
 
-	alertGroups, err := client.ProjectAlertGroup.List(listOpts)
+	var alertGroups *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		alertGroups, err = client.ProjectAlertGroup.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

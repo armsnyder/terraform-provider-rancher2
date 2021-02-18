@@ -92,7 +92,11 @@ func dataSourceRancher2NodeTemplateRead(d *schema.ResourceData, meta interface{}
 	}
 	listOpts := NewListOpts(filters)
 
-	nodeTemplates, err := client.NodeTemplate.List(listOpts)
+	var nodeTemplates *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		nodeTemplates, err = client.NodeTemplate.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

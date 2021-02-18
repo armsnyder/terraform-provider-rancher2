@@ -37,7 +37,11 @@ func resourceRancher2RoleTemplateCreate(d *schema.ResourceData, meta interface{}
 
 	log.Printf("[INFO] Creating role template")
 
-	newRoleTemplate, err := client.RoleTemplate.Create(roleTemplate)
+	var newRoleTemplate *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newRoleTemplate, err = client.RoleTemplate.Create(roleTemplate)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -54,7 +58,11 @@ func resourceRancher2RoleTemplateRead(d *schema.ResourceData, meta interface{}) 
 		return err
 	}
 
-	roleTemplate, err := client.RoleTemplate.ByID(d.Id())
+	var roleTemplate *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		roleTemplate, err = client.RoleTemplate.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] role template ID %s not found.", d.Id())
@@ -79,7 +87,11 @@ func resourceRancher2RoleTemplateUpdate(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	roleTemplate, err := client.RoleTemplate.ByID(d.Id())
+	var roleTemplate *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		roleTemplate, err = client.RoleTemplate.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -123,7 +135,11 @@ func resourceRancher2RoleTemplateDelete(d *schema.ResourceData, meta interface{}
 		return err
 	}
 
-	roleTemplate, err := client.RoleTemplate.ByID(id)
+	var roleTemplate *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		roleTemplate, err = client.RoleTemplate.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] Role template ID %s not found.", id)

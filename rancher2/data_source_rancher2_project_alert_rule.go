@@ -105,7 +105,11 @@ func dataSourceRancher2ProjectAlertRuleRead(d *schema.ResourceData, meta interfa
 	}
 	listOpts := NewListOpts(filters)
 
-	alertRules, err := client.ProjectAlertRule.List(listOpts)
+	var alertRules *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		alertRules, err = client.ProjectAlertRule.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

@@ -99,7 +99,11 @@ func resourceRancher2BootstrapCreate(d *schema.ResourceData, meta interface{}) e
 			"name":        "local",
 			"annotations": annotations,
 		}
-		_, err := client.Cluster.Update(clusterLocal, update)
+		var _ *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			_, err = client.Cluster.Update(clusterLocal, update)
+			return err
+		})
 		if err != nil {
 			return err
 		}
@@ -310,7 +314,11 @@ func bootstrapCleanUpTempToken(d *schema.ResourceData, meta interface{}) error {
 		return nil
 	}
 
-	token, err := client.Token.ByID(tokenID)
+	var token *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		token, err = client.Token.ByID(tokenID)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			// Clean up temp token data

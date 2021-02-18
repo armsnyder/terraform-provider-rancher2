@@ -26,7 +26,11 @@ func resourceRancher2AuthConfigOpenLdapCreate(d *schema.ResourceData, meta inter
 		return err
 	}
 
-	auth, err := client.AuthConfig.ByID(AuthConfigOpenLdapName)
+	var auth *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		auth, err = client.AuthConfig.ByID(AuthConfigOpenLdapName)
+		return err
+	})
 	if err != nil {
 		return fmt.Errorf("[ERROR] Failed to get Auth Config %s: %s", AuthConfigOpenLdapName, err)
 	}
@@ -84,7 +88,11 @@ func resourceRancher2AuthConfigOpenLdapRead(d *schema.ResourceData, meta interfa
 		return err
 	}
 
-	auth, err := client.AuthConfig.ByID(AuthConfigOpenLdapName)
+	var auth *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		auth, err = client.AuthConfig.ByID(AuthConfigOpenLdapName)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			log.Printf("[INFO] Auth Config %s not found.", AuthConfigOpenLdapName)
@@ -121,7 +129,11 @@ func resourceRancher2AuthConfigOpenLdapDelete(d *schema.ResourceData, meta inter
 		return err
 	}
 
-	auth, err := client.AuthConfig.ByID(AuthConfigOpenLdapName)
+	var auth *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		auth, err = client.AuthConfig.ByID(AuthConfigOpenLdapName)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) {
 			log.Printf("[INFO] Auth Config %s not found.", AuthConfigOpenLdapName)

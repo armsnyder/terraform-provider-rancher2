@@ -19,7 +19,11 @@ func dataSourceRancher2PodSecurityPolicyTemplateRead(d *schema.ResourceData, met
 
 	name := d.Get("name").(string)
 
-	pspt, err := client.PodSecurityPolicyTemplate.ByID(name)
+	var pspt *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		pspt, err = client.PodSecurityPolicyTemplate.ByID(name)
+		return err
+	})
 	if err != nil {
 		return err
 	}

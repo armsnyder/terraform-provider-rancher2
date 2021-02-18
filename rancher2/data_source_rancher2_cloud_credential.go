@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	managementClient "github.com/rancher/rancher/pkg/client/generated/management/v3"
 )
 
 func dataSourceRancher2CloudCredential() *schema.Resource {
@@ -37,7 +38,11 @@ func dataSourceRancher2CloudCredentialRead(d *schema.ResourceData, meta interfac
 	filters := map[string]interface{}{"name": name}
 	listOpts := NewListOpts(filters)
 
-	credentials, err := client.CloudCredential.List(listOpts)
+	var credentials *managementClient.CloudCredentialCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		credentials, err = client.CloudCredential.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

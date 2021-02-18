@@ -80,7 +80,11 @@ func dataSourceRancher2UserRead(d *schema.ResourceData, meta interface{}) error 
 
 	listOpts := NewListOpts(filters)
 
-	users, err := client.User.List(listOpts)
+	var users *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		users, err = client.User.List(listOpts)
+		return err
+	})
 	if err != nil {
 		return err
 	}

@@ -39,7 +39,11 @@ func resourceRancher2UserCreate(d *schema.ResourceData, meta interface{}) error 
 
 	log.Printf("[INFO] Creating User %s", user.Username)
 
-	newUser, err := client.User.Create(user)
+	var newUser *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newUser, err = client.User.Create(user)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -70,7 +74,11 @@ func resourceRancher2UserRead(d *schema.ResourceData, meta interface{}) error {
 		return err
 	}
 
-	user, err := client.User.ByID(d.Id())
+	var user *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		user, err = client.User.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] User ID %s not found.", d.Id())
@@ -90,7 +98,11 @@ func resourceRancher2UserUpdate(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	user, err := client.User.ByID(d.Id())
+	var user *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		user, err = client.User.ByID(d.Id())
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -108,7 +120,11 @@ func resourceRancher2UserUpdate(d *schema.ResourceData, meta interface{}) error 
 		"labels":      toMapString(d.Get("labels").(map[string]interface{})),
 	}
 
-	newUser, err := client.User.Update(user, update)
+	var newUser *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		newUser, err = client.User.Update(user, update)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -138,7 +154,11 @@ func resourceRancher2UserDelete(d *schema.ResourceData, meta interface{}) error 
 		return err
 	}
 
-	user, err := client.User.ByID(id)
+	var user *projectClient.AppCollection
+	err = meta.(*Config).WithRetry(func() (err error) {
+		user, err = client.User.ByID(id)
+		return err
+	})
 	if err != nil {
 		if IsNotFound(err) || IsForbidden(err) {
 			log.Printf("[INFO] User ID %s not found.", d.Id())
@@ -177,7 +197,11 @@ func resourceRancher2UserDelete(d *schema.ResourceData, meta interface{}) error 
 // userStateRefreshFunc returns a resource.StateRefreshFunc, used to watch a Rancher User.
 func userStateRefreshFunc(client *managementClient.Client, userID string) resource.StateRefreshFunc {
 	return func() (interface{}, string, error) {
-		obj, err := client.User.ByID(userID)
+		var obj *projectClient.AppCollection
+		err = meta.(*Config).WithRetry(func() (err error) {
+			obj, err = client.User.ByID(userID)
+			return err
+		})
 		if err != nil {
 			if IsNotFound(err) || IsForbidden(err) {
 				return obj, "removed", nil
