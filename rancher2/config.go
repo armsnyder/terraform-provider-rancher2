@@ -1,13 +1,16 @@
 package rancher2
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-version"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 	"github.com/rancher/norman/clientbase"
 	"github.com/rancher/norman/types"
 	types2 "github.com/rancher/rancher/pkg/api/steve/catalog/types"
@@ -56,6 +59,7 @@ type Config struct {
 	K8SSupportedVersions []string
 	Sync                 sync.Mutex
 	Client               Client
+	RetryTimeout         time.Duration
 }
 
 // GetRancherVersion get Rancher server version
@@ -367,6 +371,11 @@ func (c *Config) CreateClientOpts() *clientbase.ClientOpts {
 		TokenKey: c.TokenKey,
 		CACerts:  c.CACerts,
 		Insecure: c.Insecure,
+		HTTPClient: &http.Client{
+			Transport: &retryTransport{
+				timeout: c.RetryTimeout,
+			},
+		},
 	}
 	return options
 }
@@ -1802,4 +1811,50 @@ func (c *Config) GetRecipientByNotifier(id string) (*managementClient.Recipient,
 	}
 
 	return out, nil
+}
+
+// retryTransport is a RoundTripper that retries server errors.
+//
+// This is to avoid having to write retry logic all over the place, since the Rancher generated
+// client does not provide retry options at the time of writing.
+//
+// The RoundTripper documentation states that it should not be used to interpret the response, so
+// this is a bit of a hack.
+type retryTransport struct {
+	timeout time.Duration
+}
+
+func (r *retryTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+	if r.timeout == 0 {
+		return http.DefaultTransport.RoundTrip(req)
+	}
+
+	retriableErrorCodes := []int{
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+	}
+
+	_ = resource.Retry(r.timeout, func() *resource.RetryError {
+		if resp != nil {
+			// Must close the body ourselves for any response object that we are not returning.
+			_ = resp.Body.Close()
+		}
+
+		resp, err = http.DefaultTransport.RoundTrip(req)
+		if err != nil {
+			return resource.RetryableError(err)
+		}
+
+		for _, code := range retriableErrorCodes {
+			if resp.StatusCode == code {
+				return resource.RetryableError(errors.New(resp.Status))
+			}
+		}
+
+		return nil
+	})
+
+	return resp, err
 }

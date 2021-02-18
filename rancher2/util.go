@@ -20,6 +20,7 @@ import (
 
 	ghodssyaml "github.com/ghodss/yaml"
 	gover "github.com/hashicorp/go-version"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/rancher/norman/clientbase"
 	"github.com/rancher/norman/types"
 	"golang.org/x/crypto/bcrypt"
@@ -289,14 +290,27 @@ func IsNotAllowed(err error) bool {
 	return apiError.StatusCode == http.StatusMethodNotAllowed
 }
 
-// IsServerError checks if the given APIError is a Internal Server Error HTTP statuscode
+// IsServerError checks if the given APIError is a Server Error HTTP statuscode
 func IsServerError(err error) bool {
+	serverErrorCodes := []int{
+		http.StatusInternalServerError,
+		http.StatusBadGateway,
+		http.StatusServiceUnavailable,
+		http.StatusGatewayTimeout,
+	}
+
 	apiError, ok := err.(*clientbase.APIError)
 	if !ok {
 		return false
 	}
 
-	return apiError.StatusCode == http.StatusInternalServerError
+	for _, code := range serverErrorCodes {
+		if apiError.StatusCode == code {
+			return true
+		}
+	}
+
+	return false
 }
 
 func splitTokenID(token string) string {
@@ -714,4 +728,24 @@ func structToMap(item interface{}) map[string]interface{} {
 	}
 
 	return res
+}
+
+func validateDurationBetween(min, max time.Duration) schema.SchemaValidateFunc {
+	return func(i interface{}, k string) (warnings []string, errors []error) {
+		v, ok := i.(string)
+		if !ok {
+			return nil, []error{fmt.Errorf("expected type of %s to be string", k)}
+		}
+
+		duration, err := time.ParseDuration(v)
+		if err != nil {
+			return nil, []error{fmt.Errorf("expected %s to be formatted as a duration, got %q: %w", k, v, err)}
+		}
+
+		if duration < min || duration > max {
+			return nil, []error{fmt.Errorf("expected %s to be in the range (%s - %s), got %s", k, min, max, v)}
+		}
+
+		return nil, nil
+	}
 }
